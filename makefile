@@ -1,10 +1,10 @@
 UNAME_S := $(shell uname -s)
 
 ifeq ($(UNAME_S),Linux)
-	FLAGS = -lglut -lGL -lGLU -std=c++11 -lSOIL
+	FLAGS = -lGL -lGLU -lSDL2 -std=c++11
 endif
 ifeq ($(UNAME_S),Darwin)
-	FLAGS = -framework SDL2 -framework OpenGL -std=c++11 -lSOIL
+	FLAGS = -framework SDL2 -framework OpenGL -std=c++11
 endif
 
 # OBJS specifies which files to compile as part of the project
