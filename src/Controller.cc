@@ -1,287 +1,162 @@
 #include "Controller.h"
-
+#include <vector>
+#include <fstream>
 
 namespace Controller{
+	// Screen Info
+	int width = 640;
+	int height= 480;
+
 	// Variables
 	View view;
-	GLuint gProgramID = 0;
+	GLuint programID = 0;
 	GLint gVertexPos2DLocation = -1;
 	GLuint gVBO = 0;
 	GLuint gIBO = 0;
 	bool gRenderQuad = true;
 
+	GLuint vertexbuffer;
+	int c = 0.0;
 
+// Driver
+	void run(){
+		// Initiate the Windows Manager
+		view.initWM(width, height);
 
-	void handleKeys( unsigned char key, int x, int y ){
-		//Toggle quad
-		if( key == 'q' )
-		{
-			// cout << "hit q" << endl;
-			gRenderQuad = !gRenderQuad;
+		// Setup callbacks
+		view.setKeyboard(handleKeys);
+
+		// Setup Shades
+		initGL();
+		while( view.handleEvents() ){ // Start the loop
+			render();
+			quit(0);
 		}
 	}
+
+
+// Helpers
 
 	void render(){
-		//Clear color buffer
+		view.clearTo(10,100,100);
+		view.drawText(255, 255, 255, width/2, height/3, "Hold on..");
 
-		static float c = 0.0;
-		glClearColor( c, c, c, 1.f );
-		c=c+0.01;
-		// cout << c << endl;
-
-		glClear( GL_COLOR_BUFFER_BIT );
+		view.flip();
+		view.wait(1);
 		
-		//Render quad
-		if( gRenderQuad )
-		{
-			//Bind program
-			glUseProgram( gProgramID );
-
-			//Enable vertex position
-			glEnableVertexAttribArray( gVertexPos2DLocation );
-
-			//Set vertex data
-			glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-			glVertexAttribPointer( gVertexPos2DLocation, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), NULL );
-
-			//Set index data and render
-			glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
-			glDrawElements( GL_TRIANGLE_FAN, 4, GL_UNSIGNED_INT, NULL );
-
-			//Disable vertex position
-			glDisableVertexAttribArray( gVertexPos2DLocation );
-
-			//Unbind program
-			glUseProgram( (GLuint) NULL );
-		}
-	}
-
-
-	void run(){
-		view.initWM();
-		initGL();
-		//Main loop flag
-		bool quit = false;
-
-		//Event handler
-		SDL_Event e;
-		
-		//Enable text input
-		SDL_StartTextInput();
-
-		//While application is running
-		while( !quit )
-		{
-			//Handle events on queue
-			while( SDL_PollEvent( &e ) != 0 )
-			{
-				//User requests quit
-				if( e.type == SDL_QUIT )
-				{
-					quit = true;
-				}
-				//Handle keypress with current mouse position
-				else if( e.type == SDL_TEXTINPUT )
-				{
-					int x = 0, y = 0;
-					SDL_GetMouseState( &x, &y );
-					handleKeys( e.text.text[ 0 ], x, y );
-				}
-			}
-
-			//Render quad
-			render();
-			
-			//Update screen
-			view.update();
-			
-		}
-		
-		//Disable text input
-		SDL_StopTextInput();
-
 	}
 
 	int initGL(){
-		//Success flag
-		bool success = true;
-
-		//Generate program
-		gProgramID = glCreateProgram();
-
-		//Create vertex shader
-		GLuint vertexShader = glCreateShader( GL_VERTEX_SHADER );
-
-		//Get vertex source
-		const GLchar* vertexShaderSource[] =
-		{
-			"#version 140\nin vec2 LVertexPos2D; void main() { gl_Position = vec4( LVertexPos2D.x, LVertexPos2D.y, 0, 1 ); }"
-		};
-
-		//Set vertex source
-		glShaderSource( vertexShader, 1, vertexShaderSource, NULL );
-
-		//Compile vertex source
-		glCompileShader( vertexShader );
-
-		//Check vertex shader for errors
-		GLint vShaderCompiled = GL_FALSE;
-		glGetShaderiv( vertexShader, GL_COMPILE_STATUS, &vShaderCompiled );
-		if( vShaderCompiled != GL_TRUE )
-		{
-			printf( "Unable to compile vertex shader %d!\n", vertexShader );
-			printShaderLog( vertexShader );
-			success = false;
-		}
-		else
-		{
-			//Attach vertex shader to program
-			glAttachShader( gProgramID, vertexShader );
-
-
-			//Create fragment shader
-			GLuint fragmentShader = glCreateShader( GL_FRAGMENT_SHADER );
-
-			//Get fragment source
-			const GLchar* fragmentShaderSource[] =
-			{
-				"#version 140\nout vec4 LFragment; void main() { LFragment = vec4( 1.0, 1.0, 1.0, 1.0 ); }"
-			};
-
-			//Set fragment source
-			glShaderSource( fragmentShader, 1, fragmentShaderSource, NULL );
-
-			//Compile fragment source
-			glCompileShader( fragmentShader );
-
-			//Check fragment shader for errors
-			GLint fShaderCompiled = GL_FALSE;
-			glGetShaderiv( fragmentShader, GL_COMPILE_STATUS, &fShaderCompiled );
-			if( fShaderCompiled != GL_TRUE )
-			{
-				printf( "Unable to compile fragment shader %d!\n", fragmentShader );
-				printShaderLog( fragmentShader );
-				success = false;
-			}
-			else
-			{
-				//Attach fragment shader to program
-				glAttachShader( gProgramID, fragmentShader );
-
-
-				//Link program
-				glLinkProgram( gProgramID );
-
-				//Check for errors
-				GLint programSuccess = GL_TRUE;
-				glGetProgramiv( gProgramID, GL_LINK_STATUS, &programSuccess );
-				if( programSuccess != GL_TRUE )
-				{
-					printf( "Error linking program %d!\n", gProgramID );
-					printProgramLog( gProgramID );
-					success = false;
-				}
-				else
-				{
-					//Get vertex attribute location
-					gVertexPos2DLocation = glGetAttribLocation( gProgramID, "LVertexPos2D" );
-					if( gVertexPos2DLocation == -1 )
-					{
-						printf( "LVertexPos2D is not a valid glsl program variable!\n" );
-						success = false;
-					}
-					else
-					{
-						//Initialize clear color
-						
-						//VBO data
-						GLfloat vertexData[] =
-						{
-							-0.5f, -0.5f,
-							 0.5f, -0.5f,
-							 0.5f,  0.5f,
-							-0.5f,  0.5f
-						};
-
-						//IBO data
-						GLuint indexData[] = { 0, 1, 2, 3 };
-
-						//Create VBO
-						glGenBuffers( 1, &gVBO );
-						glBindBuffer( GL_ARRAY_BUFFER, gVBO );
-						glBufferData( GL_ARRAY_BUFFER, 2 * 4 * sizeof(GLfloat), vertexData, GL_STATIC_DRAW );
-
-						//Create IBO
-						glGenBuffers( 1, &gIBO );
-						glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, gIBO );
-						glBufferData( GL_ELEMENT_ARRAY_BUFFER, 4 * sizeof(GLuint), indexData, GL_STATIC_DRAW );
-					}
-				}
-			}
-		}
+		const char* ver = (char*)glGetString(GL_VERSION);
+		cout << "VER: " << ver << endl;
 		
-		return success;
-	}
-	
-	void printShaderLog( GLuint shader ){
-		//Make sure name is shader
-		if( glIsShader( shader ) )
-		{
-			//Shader log length
-			int infoLogLength = 0;
-			int maxLength = infoLogLength;
-			
-			//Get info string length
-			glGetShaderiv( shader, GL_INFO_LOG_LENGTH, &maxLength );
-			
-			//Allocate string
-			char* infoLog = new char[ maxLength ];
-			
-			//Get info log
-			glGetShaderInfoLog( shader, maxLength, &infoLogLength, infoLog );
-			if( infoLogLength > 0 )
-			{
-				//Print Log
-				printf( "%s\n", infoLog );
-			}
-
-			//Deallocate string
-			delete[] infoLog;
-		}
-		else
-		{
-			printf( "Name %d is not a shader\n", shader );
-		}
+		return 0;
 	}
 
-	void printProgramLog( GLuint program ){
-		//Make sure name is shader
-		if( glIsProgram( program ) )
-		{
-			//Program log length
-			int infoLogLength = 0;
-			int maxLength = infoLogLength;
-			
-			//Get info string length
-			glGetProgramiv( program, GL_INFO_LOG_LENGTH, &maxLength );
-			
-			//Allocate string
-			char* infoLog = new char[ maxLength ];
-			
-			//Get info log
-			glGetProgramInfoLog( program, maxLength, &infoLogLength, infoLog );
-			if( infoLogLength > 0 )
-			{
-				//Print Log
-				printf( "%s\n", infoLog );
-			}
-			
-			//Deallocate string
-			delete[] infoLog;
+	int loadShaders(const char * vertex_file_path,const char * fragment_file_path){
+
+		cout << "Loading.." << endl;
+		// Debug-assist variables
+		GLint Result = GL_FALSE;
+		int InfoLogLength;
+
+		// Create the Vertex Shader
+			// Read the Vertex Shader code from the file
+		GLuint VertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+		string VertexShaderCode;
+		ifstream VertexShaderStream(vertex_file_path, ios::in);
+		if(!VertexShaderStream.is_open()){
+			cout << "Cannot open " << vertex_file_path << ". Are you in the right directory?" << endl;
+			return 0;
+		} // is open
+		string Line = "";
+		while(getline(VertexShaderStream, Line))
+			VertexShaderCode += "\n" + Line;
+		VertexShaderStream.close();
+
+			// Compile Vertex Shader
+		cout << "Compiling shader : " << vertex_file_path << endl;
+		char const * VertexSourcePointer = VertexShaderCode.c_str();
+		glShaderSource(VertexShaderID, 1, &VertexSourcePointer , NULL);
+		glCompileShader(VertexShaderID);
+
+			// Check Vertex Shader
+		glGetShaderiv(VertexShaderID, GL_COMPILE_STATUS, &Result);
+		glGetShaderiv(VertexShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		if ( InfoLogLength > 0 ){
+			vector<char> VertexShaderErrorMessage(InfoLogLength+1);
+			glGetShaderInfoLog(VertexShaderID, InfoLogLength, NULL, &VertexShaderErrorMessage[0]);
+			cout << &VertexShaderErrorMessage[0] << endl;
 		}
-		else
-		{
-			printf( "Name %d is not a program\n", program );
+
+
+		// Create the Fragment Shader
+			// Read the Fragment Shader code from the file
+		GLuint FragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+		string FragmentShaderCode;
+		ifstream FragmentShaderStream(fragment_file_path, ios::in);
+		if(!FragmentShaderStream.is_open()){
+			cout << "Cannot open " << fragment_file_path << ". Are you in the right directory?" << endl;
+			return 0;
+		}// is open
+		while(getline(FragmentShaderStream, Line))
+			FragmentShaderCode += "\n" + Line;
+		FragmentShaderStream.close();
+
+			// Compile Fragment Shader
+		cout << "Compiling shader : " << fragment_file_path << endl;
+		char const * FragmentSourcePointer = FragmentShaderCode.c_str();
+		glShaderSource(FragmentShaderID, 1, &FragmentSourcePointer , NULL);
+		glCompileShader(FragmentShaderID);
+
+			// Check Fragment Shader
+		Result = GL_FALSE;
+		glGetShaderiv(FragmentShaderID, GL_COMPILE_STATUS, &Result);
+		glGetShaderiv(FragmentShaderID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		if ( InfoLogLength > 0 ){
+			vector<char> FragmentShaderErrorMessage(InfoLogLength+1);
+			glGetShaderInfoLog(FragmentShaderID, InfoLogLength, NULL, &FragmentShaderErrorMessage[0]);
+			cout << &FragmentShaderErrorMessage[0] << endl;
+		}
+
+
+
+		// Create the program
+			// Link the program
+		cout << "Linking program" << endl;
+		GLuint ProgramID = glCreateProgram();
+		glAttachShader(ProgramID, VertexShaderID);
+		glAttachShader(ProgramID, FragmentShaderID);
+		glLinkProgram(ProgramID);
+
+			// Check the program
+		glGetProgramiv(ProgramID, GL_LINK_STATUS, &Result);
+		glGetProgramiv(ProgramID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+		if ( InfoLogLength > 0 ){
+			vector<char> ProgramErrorMessage(InfoLogLength+1);
+			glGetProgramInfoLog(ProgramID, InfoLogLength, NULL, &ProgramErrorMessage[0]);
+			cout << &ProgramErrorMessage[0] << endl;
+		}
+
+		glDetachShader(ProgramID, VertexShaderID);
+		glDeleteShader(VertexShaderID);
+		glDetachShader(ProgramID, FragmentShaderID);
+		glDeleteShader(FragmentShaderID);
+
+		cout << "__DONE__" << endl;
+		return ProgramID;
+	}
+
+
+	void handleKeys( unsigned char key, int x, int y ){
+		if( key == 'r' ){
+			cout << "hit r at " << x << ", " << y << endl;
 		}
 	}
+
+	void quit(int e){
+		view.destroy();
+		exit(e);
+	}
+
 }
